@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+out/
+node_modules/
+data/
+watch.json
+.DS_Store

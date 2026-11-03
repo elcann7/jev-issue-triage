@@ -1,0 +1,37 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please **do not paste API keys, tokens or private issue text**.
+  - type: dropdown
+    id: part
+    attributes:
+      label: Which part?
+      options:
+        - GitHub Action
+        - Local dashboard
+        - Evaluation script
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: For the Action, the job summary (with the probabilities) is very helpful.
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: Node version (dashboard) or runner, and the Action version or commit.

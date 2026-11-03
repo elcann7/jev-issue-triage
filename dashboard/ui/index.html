@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jev Issue Triage</title>
+<style>
+  /* Calm neutral design: no hover effects, transitions or animations. Color is used only for warnings. */
+  :root {
+    --bg: #f6f6f4; --card: #ffffff; --ink: #151515; --muted: #6a6a6a; --line: #dcdcd8;
+    --warn: #8a5a00; --danger: #b42318;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f0f0f; --card: #171717; --ink: #ececec; --muted: #8c8c8c; --line: #2c2c2c; --warn: #d9a441; --danger: #f08a7e; }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, "Segoe UI", sans-serif; }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  header { max-width: 1120px; margin: 0 auto; padding: 26px 20px 10px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
+  h1 { font-size: 20px; margin: 0; font-weight: 650; }
+  header p { margin: 0; color: var(--muted); }
+  #status { margin-left: auto; font: 12px var(--mono); color: var(--muted); }
+  nav { max-width: 1120px; margin: 0 auto; padding: 0 20px; display: flex; gap: 22px; border-bottom: 1px solid var(--line); }
+  nav button { all: unset; cursor: pointer; padding: 8px 0; color: var(--muted); font-weight: 600; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  nav button.active { color: var(--ink); border-bottom-color: var(--ink); }
+  main { max-width: 1120px; margin: 0 auto; padding: 20px 20px 60px; display: grid; grid-template-columns: minmax(300px, 400px) 1fr; gap: 20px; align-items: start; }
+  main.wide { grid-template-columns: 1fr; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
+  h2 { font-size: 12px; margin: 0 0 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+  h3 { font-size: 15px; margin: 0 0 10px; }
+  .stack > * + * { margin-top: 16px; }
+
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  input, textarea, select { width: 100%; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+  textarea { min-height: 190px; resize: vertical; font-size: 14px; }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+  .btn { font: inherit; font-weight: 600; background: var(--ink); color: var(--bg); border: 1px solid var(--ink); border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+  .btn.secondary { background: transparent; color: var(--ink); border-color: var(--line); }
+  .btn.small { padding: 3px 10px; font-size: 13px; }
+  .btn.block { width: 100%; margin-top: 16px; padding: 10px 14px; }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  details { margin-top: 12px; font-size: 13px; color: var(--muted); }
+  summary { cursor: pointer; }
+  .hint { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+  .empty { color: var(--muted); padding: 36px 10px; text-align: center; }
+  .error { border: 1px solid var(--danger); color: var(--danger); border-radius: 6px; padding: 10px 12px; margin-bottom: 14px; font-size: 14px; white-space: pre-wrap; }
+  .meta { font: 12px var(--mono); color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 16px; }
+  .bar-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 14px; }
+  .bar-head h2 { margin-bottom: 6px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .label { font: 12px var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 1px 7px; white-space: nowrap; }
+  .label.ghost { color: var(--muted); }
+  .label.warn { border-style: dashed; color: var(--warn); border-color: var(--warn); }
+  .label.bad { color: var(--danger); border-color: var(--danger); }
+
+  table { width: 100%; border-collapse: collapse; }
+  td, th { padding: 8px 8px; border-top: 1px solid var(--line); vertical-align: top; text-align: left; font-size: 14px; }
+  th { font: 600 12px var(--mono); color: var(--muted); border-top: 0; }
+  tr.item { cursor: pointer; }
+  .num { font: 13px var(--mono); color: var(--muted); white-space: nowrap; }
+  table a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+  td.q { width: 42%; } td.q code { font: 13px var(--mono); } td.q small { display: block; color: var(--muted); font-size: 12px; line-height: 1.35; }
+  td.p { font: 13px var(--mono); text-align: right; width: 54px; }
+  td.st { font: 12px var(--mono); width: 66px; text-align: right; color: var(--muted); }
+  td.st.yes { color: var(--ink); font-weight: 700; } td.st.unsure { color: var(--warn); font-weight: 700; }
+
+  .bar { position: relative; height: 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; margin-top: 6px; }
+  .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ink); border-radius: 3px; opacity: 0.8; }
+  .bar u { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--muted); }
+  .lvl { display: grid; grid-template-columns: 22px 1fr 54px; gap: 8px; align-items: center; padding: 5px 0; font-size: 13px; }
+  .lvl.top { font-weight: 600; }
+  pre { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 12px; overflow: auto; font: 12px/1.45 var(--mono); max-height: 360px; margin: 8px 0 0; }
+  .block + .block { margin-top: 24px; }
+  .code { font: 22px var(--mono); letter-spacing: 0.12em; border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; display: inline-block; margin: 8px 0; }
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 12px; font-size: 13px; color: var(--muted); }
+  .toolbar label { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+  .toolbar input { width: auto; }
+
+  .counts { display: flex; flex-wrap: wrap; gap: 8px 34px; margin: 2px 0 6px; }
+  .count b { display: block; font-size: 30px; line-height: 1.1; font-weight: 650; }
+  .count span { font-size: 12px; color: var(--muted); }
+  .count.urgent b { color: var(--danger); }
+  details.tier { margin-top: 22px; font-size: 15px; color: var(--ink); }
+  details.tier > summary { font-weight: 650; }
+  details.tier > summary small { font-weight: 400; color: var(--muted); margin-left: 8px; font-size: 13px; }
+  .issue { padding: 10px 0; border-top: 1px solid var(--line); cursor: pointer; }
+  .issue:first-of-type { margin-top: 8px; }
+  .issue .t { font-weight: 550; }
+  .issue .t a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+  .issue .why { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .issue .why .reason { color: var(--ink); }
+  .nothing { color: var(--muted); font-size: 14px; padding: 8px 0; }
+
+  .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 4px 18px; margin-top: 4px; }
+  .fields small { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; line-height: 1.35; }
+  details.settings { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 6px; font-size: 14px; color: var(--ink); }
+  details.settings > summary { font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Jev Issue Triage</h1>
+  <p>Jev judges, code decides.</p>
+  <span id="status">connecting…</span>
+</header>
+<nav>
+  <button class="active" data-tab="live">Live feed</button>
+  <button data-tab="github">GitHub</button>
+  <button data-tab="single">Single issue</button>
+  <button data-tab="scan">Scan a repository</button>
+</nav>
+
+<!-- ===================== Live feed ===================== -->
+<main id="live" class="wide">
+  <section>
+    <div class="bar-head">
+      <div><h2>Live feed</h2><div class="meta" id="livestatus">connecting…</div></div>
+      <button id="pause" class="btn secondary small" hidden>Pause</button>
+    </div>
+    <details id="settings" class="settings">
+      <summary>Settings</summary>
+      <div class="fields">
+        <div><label for="set-daily">Issues analyzed per day (limit)</label><input id="set-daily" type="number" min="1" max="2000"><small id="hint-daily"></small></div>
+        <div><label for="set-per">New issues looked at per check</label><input id="set-per" type="number" min="1" max="100"><small id="hint-per"></small></div>
+        <div><label for="set-poll">Check every (minutes)</label><input id="set-poll" type="number" min="1" max="60"><small id="hint-poll"></small></div>
+        <div><label for="set-feed">Show the latest</label><select id="set-feed"><option>25</option><option>50</option><option>100</option><option>200</option><option>500</option></select><small>issues in the list</small></div>
+      </div>
+      <div style="margin-top:12px"><button class="btn small" id="set-save">Save settings</button> <span class="hint" id="set-msg" style="margin-left:8px"></span></div>
+    </details>
+    <div id="liveerr" class="error" hidden></div>
+    <div class="empty" id="liveempty" hidden></div>
+    <div id="livebody"></div>
+  </section>
+</main>
+
+<!-- ===================== GitHub ===================== -->
+<main id="github" class="wide" hidden>
+  <div class="stack">
+    <section id="gh-connect" hidden>
+      <h2>Connect your GitHub</h2>
+      <p style="margin-top:0">Connect to see your repositories and their issues, and choose which ones Jev watches automatically.</p>
+      <div class="row" style="align-items:flex-start;gap:24px;flex-wrap:wrap">
+        <div style="flex:1;min-width:240px">
+          <h3>GitHub CLI on this computer</h3>
+          <p class="hint" style="margin-top:0">Uses the account you are already logged in with via <code>gh</code>. One click.</p>
+          <button class="btn" id="gh-cli" style="margin-top:10px">Connect with GitHub CLI</button>
+        </div>
+        <div style="flex:1;min-width:240px">
+          <h3>Sign in with GitHub</h3>
+          <div id="gh-device-off" class="hint" style="margin-top:0" hidden>Not configured. To enable, create a GitHub OAuth App with device flow and put its client id in <code>.env</code> as <code>GITHUB_CLIENT_ID</code>.</div>
+          <div id="gh-device-on" hidden>
+            <label for="gh-scope" style="margin-top:0">Access</label>
+            <select id="gh-scope"><option value="">Public repositories only</option><option value="repo">Include private repositories</option></select>
+            <button class="btn" id="gh-device" style="margin-top:10px">Sign in</button>
+            <div id="gh-code" hidden>
+              <p class="hint">Open <a id="gh-code-link" target="_blank" rel="noopener noreferrer">GitHub</a> and enter this code:</p>
+              <div class="code" id="gh-code-value"></div>
+              <p class="hint">Waiting for you to approve…</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="gh-err" class="error" hidden style="margin-top:14px"></div>
+      <p class="hint">The token stays in this server's memory. It is never written to disk and never sent to this page. Analyzing an issue sends its text to the Jev API.</p>
+    </section>
+
+    <section id="gh-repos" hidden>
+      <div class="bar-head">
+        <div><h2>Your repositories</h2><div class="meta" id="gh-user"></div></div>
+        <button class="btn secondary small" id="gh-disconnect">Disconnect</button>
+      </div>
+      <div class="toolbar">
+        <label><input type="checkbox" id="gh-forks"> Show forks and archived</label>
+        <span>“Open” counts issues and pull requests together.</span>
+      </div>
+      <div id="gh-repos-err" class="error" hidden></div>
+      <table id="gh-repo-table"></table>
+    </section>
+
+    <section id="gh-issues" hidden>
+      <div class="bar-head">
+        <div><h2 id="gh-issues-title">Issues</h2><div class="meta" id="gh-issues-meta"></div></div>
+        <button class="btn secondary small" id="gh-issues-watch"></button>
+      </div>
+      <div id="gh-issues-err" class="error" hidden></div>
+      <div class="empty" id="gh-issues-empty" hidden>No open issues.</div>
+      <table id="gh-issue-table"></table>
+    </section>
+  </div>
+</main>
+
+<!-- ===================== Single issue ===================== -->
+<main id="single" hidden>
+  <section>
+    <h2>Issue</h2>
+    <label for="example">Load an example</label>
+    <select id="example"><option value="">Write your own</option></select>
+    <p class="hint" id="expected"></p>
+    <label for="title">Title</label>
+    <input id="title" maxlength="300">
+    <label for="body">Body</label>
+    <textarea id="body"></textarea>
+    <details>
+      <summary>Project context and thresholds</summary>
+      <label for="pname">Project name</label><input id="pname" value="pixelkit">
+      <label for="pdesc">Project description</label><input id="pdesc" value="A small image processing library for Python.">
+      <div class="row">
+        <div><label for="low">Low (≤ is no)</label><input id="low" type="number" step="0.05" min="0.05" max="0.9" value="0.3"></div>
+        <div><label for="high">High (≥ is yes)</label><input id="high" type="number" step="0.05" min="0.1" max="0.95" value="0.7"></div>
+      </div>
+    </details>
+    <button class="btn block" id="go">Analyze with Jev</button>
+    <p class="hint">Sends only the text above to the Jev API. Costs a fraction of a cent.</p>
+  </section>
+  <section id="result">
+    <div class="empty" id="placeholder">Pick an example or write an issue, then analyze it.</div>
+    <div id="out" hidden>
+      <div id="err" class="error" hidden></div>
+      <div class="block"><h2>Decision</h2><div class="chips" id="labels"></div><p class="hint" id="comments"></p></div>
+      <div class="block"><h2>Judgments from Jev</h2><table id="table"></table></div>
+      <div class="block" id="sevblock"><h2>Severity distribution</h2><div id="sev"></div></div>
+      <div class="block"><div class="meta" id="meta"></div>
+        <details><summary>Exact request sent</summary><pre id="req"></pre></details>
+        <details><summary>Raw response</summary><pre id="resp"></pre></details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ===================== Scan ===================== -->
+<main id="scan" class="wide" hidden>
+  <section>
+    <h2>Scan a public repository</h2>
+    <div class="row" style="align-items:flex-end">
+      <div style="flex:3"><label for="repo">Repository</label><input id="repo" placeholder="owner/name or a github.com link"></div>
+      <div><label for="limit">Latest open issues</label><select id="limit"><option>5</option><option selected>10</option><option>20</option><option>30</option></select></div>
+    </div>
+    <button class="btn block" id="scango">Scan with Jev</button>
+    <p class="hint">Any github.com link works (issues, pulls, .git). About $0.00005 per issue. Pull requests are skipped.</p>
+    <div id="scanerr" class="error" hidden></div>
+    <div id="scanout" hidden>
+      <div class="meta" id="scansum" style="margin:14px 0"></div>
+      <div id="scanbody"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const SEV = ["low", "medium", "high", "critical"];
+let cfg = null, examples = null, last = null, ghStatus = null, ghRepo = null, devicePoll = null;
+
+function el(tag, props = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) { if (k === "class") e.className = v; else if (k === "style") e.style.cssText = v; else e.setAttribute(k, v); }
+  for (const k of kids) e.append(k);
+  return e;
+}
+async function api(path, body) {
+  const res = await fetch(path, body !== undefined ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : undefined);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { data, status: res.status });
+  return data;
+}
+/** Private repository confirmation: if the server returns needsConfirm, ask the user and resend with confirmation. */
+async function withPrivateConfirm(path, body) {
+  try { return await api(path, body); }
+  catch (e) {
+    if (e.data && e.data.needsConfirm && window.confirm(e.message)) return api(path, { ...body, confirmPrivate: true });
+    throw e;
+  }
+}
+const thresholds = () => ({ low: Number($("low").value), high: Number($("high").value) });
+const showErr = (id, e) => { const b = $(id); b.hidden = !e; b.textContent = e ? (e.message || String(e)) : ""; };
+
+// ------------------------------------------------------------------ tablar
+const TABS = ["live", "github", "single", "scan"];
+function showTab(name) {
+  document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+  for (const id of TABS) $(id).hidden = id !== name;
+  history.replaceState(null, "", "#" + name);
+  if (name === "live") refreshLive();
+  if (name === "github") refreshGithub();
+}
+document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+
+// ------------------------------------------------------------------ shared helpers
+function chips(list, cls = "") { return el("div", { class: "chips" }, ...list.map((l) => el("span", { class: "label " + labelClass(l, cls) }, l))); }
+function labelClass(l, base = "") {
+  if (base === "ghost") return "ghost";
+  if (l === "security" || l === "spam") return "bad";
+  if (l === "needs-repro" || l === "needs-triage") return "warn";
+  return "";
+}
+function ago(ms) {
+  if (!ms) return "never";
+  const s = Math.round((Date.now() - ms) / 1000);
+  if (s < 10) return "just now"; if (s < 60) return s + " s ago";
+  const m = Math.round(s / 60); if (m < 60) return m + " min ago";
+  const h = Math.round(m / 60); if (h < 48) return h + " h ago";
+  return Math.round(h / 24) + " d ago";
+}
+function inMin(ms) { const m = Math.max(0, Math.round((ms - Date.now()) / 60000)); return m <= 0 ? "in under a minute" : `in ${m} min`; }
+function dayAgo(iso) { return iso ? ago(Date.parse(iso)) : ""; }
+
+// ------------------------------------------------------------------ rendering a result (Single issue tab)
+function renderDecision(d) {
+  const box = $("labels"); box.replaceChildren();
+  for (const l of [...d.labels, "triaged"]) box.append(el("span", { class: "label " + labelClass(l) }, l));
+  $("comments").textContent = d.comments.length ? `Fixed-template comment(s) that would be posted if enabled: ${d.comments.join(", ")}` : "";
+}
+function renderTable(d) {
+  const t = $("table"); t.replaceChildren();
+  const th = thresholds();
+  for (const row of d.table) {
+    const q = cfg.questions[row.question];
+    const p = row.probability;
+    const bar = el("div", { class: "bar" }, el("i", { style: `width:${Math.max(0, Math.min(1, p || 0)) * 100}%` }),
+      el("u", { style: `left:${th.low * 100}%` }), el("u", { style: `left:${th.high * 100}%` }));
+    t.append(el("tr", {},
+      el("td", { class: "q" }, el("code", {}, row.question), el("small", {}, q ? q.instructions.replaceAll("`", "") : "")),
+      el("td", {}, bar),
+      el("td", { class: "p" }, Number.isNaN(p) ? "n/a" : p.toFixed(2)),
+      el("td", { class: "st " + row.stance }, row.stance)));
+  }
+}
+function renderSeverity(answer) {
+  const box = $("sev"); box.replaceChildren();
+  const probs = answer && answer.probabilities;
+  $("sevblock").hidden = !probs;
+  if (!probs) return;
+  const crit = cfg.questions.severity.criteria;
+  const top = Object.entries(probs).sort((a, b) => b[1] - a[1])[0][0];
+  crit.forEach((text, i) => {
+    const p = probs[i] ?? 0;
+    box.append(el("div", { class: "lvl" + (String(i) === top ? " top" : "") },
+      el("span", { class: "meta" }, String(i)),
+      el("div", {}, el("div", {}, `${SEV[i]}: ${text}`), el("div", { class: "bar" }, el("i", { style: `width:${p * 100}%` }))),
+      el("span", { class: "num", style: "text-align:right" }, p.toFixed(2))));
+  });
+}
+function render(data) {
+  $("placeholder").hidden = true; $("out").hidden = false; $("err").hidden = true;
+  last = data;
+  renderDecision(data.decision); renderTable(data.decision); renderSeverity(data.response.answers.severity);
+  const u = data.response.usage || {};
+  $("meta").replaceChildren(
+    el("span", {}, `model ${data.response.model}`),
+    el("span", {}, `${u.input_tokens ?? "?"} tokens in / ${u.output_tokens ?? "?"} out`),
+    el("span", {}, `≈ $${(((u.input_tokens || 0) * 0.042) / 1e6).toFixed(6)}`));
+  $("req").textContent = JSON.stringify(data.request, null, 2);
+  $("resp").textContent = JSON.stringify(data.response, null, 2);
+}
+function openDetail(data) {
+  const st = data.request.state.issue;
+  $("title").value = st.title; $("body").value = st.body; $("example").value = ""; $("expected").textContent = "";
+  showTab("single"); render(data);
+  window.scrollTo({ top: 0 });
+}
+async function openStored(key) {
+  try { openDetail((await api("/api/item?key=" + encodeURIComponent(key))).data); } catch (e) { alert(e.message); }
+}
+
+// ------------------------------------------------------------------ Single issue
+async function analyze() {
+  const btn = $("go"); btn.disabled = true; btn.textContent = "Asking Jev…";
+  try {
+    render(await api("/api/triage", { title: $("title").value, body: $("body").value, thresholds: thresholds(), project: { name: $("pname").value, description: $("pdesc").value } }));
+  } catch (e) { $("placeholder").hidden = true; $("out").hidden = false; showErr("err", e); }
+  finally { btn.disabled = false; btn.textContent = "Analyze with Jev"; }
+}
+async function redecide() {
+  if (!last) return;
+  try { const { decision } = await api("/api/decide", { answers: last.response.answers, thresholds: thresholds() }); last.decision = decision; renderDecision(decision); renderTable(decision); }
+  catch (e) { showErr("err", e); }
+}
+$("go").addEventListener("click", analyze);
+$("low").addEventListener("change", redecide); $("high").addEventListener("change", redecide);
+$("example").addEventListener("change", () => {
+  const i = examples.issues.find((x) => x.id === $("example").value);
+  if (!i) { $("expected").textContent = ""; return; }
+  $("title").value = i.title; $("body").value = i.body;
+  const e = i.expected;
+  $("expected").textContent = "Expected: " + [
+    e.kinds === null ? "kind debatable" : e.kinds.length ? e.kinds.join(" + ") : "no kind (needs-triage)",
+    e.needs_repro ? "needs-repro" : "", e.spam ? "spam" : "", e.security ? "security" : "",
+    e.severity !== null ? `severity ≈ ${SEV[e.severity]}` : ""].filter(Boolean).join(", ");
+});
+
+// ------------------------------------------------------------------ Live feed
+const tierOpen = {};
+const TIERS = [
+  { id: "urgent", title: "Urgent", hint: "Security problems and serious bugs. Look at these first.", open: true, empty: "Nothing urgent right now." },
+  { id: "attention", title: "Needs a reply or a look", hint: "Missing information, questions, or Jev was unsure.", open: true, empty: "Nothing waiting for you." },
+  { id: "planned", title: "Planned work", hint: "Ordinary bugs, feature requests, documentation.", open: false, empty: "" },
+  { id: "spam", title: "Spam", hint: "Hidden by default.", open: false, empty: "" },
+];
+function issueRow(it, onOpen) {
+  const title = it.url ? el("a", { href: it.url, target: "_blank", rel: "noopener noreferrer" }, it.title) : document.createTextNode(it.title);
+  const when = it.analyzedAt ? `  ·  ${ago(it.analyzedAt)}` : "";
+  const why = el("div", { class: "why" }, el("span", { class: "reason" }, it.reasons.join(" · ")),
+    `${it.reasons.length ? "  ·  " : ""}${it.repo} #${it.number}${when}`);
+  const row = el("div", { class: "issue" }, el("div", { class: "t" }, title), why);
+  row.addEventListener("click", (ev) => { if (ev.target.tagName !== "A") onOpen(it); });
+  return row;
+}
+function renderTiers(items, { onOpen, prefix }) {
+  const frag = document.createDocumentFragment();
+  for (const tier of TIERS) {
+    const list = items.filter((i) => i.tier === tier.id).sort((a, b) => a.rank - b.rank || (b.analyzedAt || 0) - (a.analyzedAt || 0));
+    if (!list.length && !tier.empty) continue;
+    const d = el("details", { class: "tier" }, el("summary", {}, `${tier.title} (${list.length})`, el("small", {}, tier.hint)));
+    const k = prefix + tier.id;
+    if (tierOpen[k] ?? tier.open) d.setAttribute("open", "");
+    d.addEventListener("toggle", () => { tierOpen[k] = d.open; });
+    if (!list.length) d.append(el("div", { class: "nothing" }, tier.empty));
+    for (const it of list) d.append(issueRow(it, onOpen));
+    frag.append(d);
+  }
+  return frag;
+}
+function tierCounts(items) { const c = { urgent: 0, attention: 0, planned: 0, spam: 0 }; for (const i of items) c[i.tier]++; return c; }
+function countsEl(sm) {
+  return el("div", { class: "counts" },
+    el("div", { class: "count urgent" }, el("b", {}, String(sm.urgent)), el("span", {}, "urgent")),
+    el("div", { class: "count" }, el("b", {}, String(sm.attention)), el("span", {}, "need a reply or a look")),
+    el("div", { class: "count" }, el("b", {}, String(sm.planned)), el("span", {}, "planned work")),
+    sm.spam ? el("div", { class: "count" }, el("b", {}, String(sm.spam)), el("span", {}, "spam hidden")) : "");
+}
+
+let lastLive = null, settingsDirty = false;
+function fillSettings(st) {
+  const s = st.settings;
+  if (!settingsDirty) {
+    $("set-daily").value = s.dailyMaxRequests; $("set-per").value = s.maxNewPerPoll; $("set-poll").value = s.pollMinutes; $("set-feed").value = String(s.feedLimit);
+  }
+  settingsHints(st);
+}
+function settingsHints(st) {
+  const daily = Number($("set-daily").value), per = Number($("set-per").value), poll = Number($("set-poll").value);
+  if (!(daily > 0 && per > 0 && poll > 0)) return;
+  const avg = st.today.requests >= 3 ? st.today.input_tokens / st.today.requests : 2000;
+  $("hint-daily").textContent = `If the limit is reached: about $${((daily * avg * 0.042) / 1e6).toFixed(4)} per day (~${Math.round(avg)} tokens per issue).`;
+  $("hint-per").textContent = `Catches up to ${Math.floor((per * 1440) / poll)} new issues a day per repository. Raise it if a project gets many issues at once.`;
+  const calls = Math.round((st.repos.length * 60) / poll);
+  $("hint-poll").textContent = `About ${calls} GitHub requests per hour for ${st.repos.length} repositories. Public access allows 60 per hour; connecting GitHub allows more.`;
+}
+for (const id of ["set-daily", "set-per", "set-poll", "set-feed"]) {
+  $(id).addEventListener("input", () => { settingsDirty = true; if (lastLive && lastLive.status) settingsHints(lastLive.status); });
+}
+$("set-save").addEventListener("click", async () => {
+  const msg = $("set-msg"); msg.textContent = "";
+  try {
+    await api("/api/settings", { dailyMaxRequests: Number($("set-daily").value), maxNewPerPoll: Number($("set-per").value), pollMinutes: Number($("set-poll").value), feedLimit: Number($("set-feed").value) });
+    settingsDirty = false; msg.textContent = "Saved."; refreshLive();
+  } catch (e) { msg.textContent = e.message; }
+});
+
+function renderLive(f) {
+  const st = f.status, pause = $("pause");
+  lastLive = f;
+  if (!st) {
+    $("livestatus").textContent = "Automatic watching is off (AUTO=0 or no API key).";
+    pause.hidden = true; $("settings").hidden = true; $("livebody").replaceChildren(); $("liveempty").hidden = true; return;
+  }
+  $("settings").hidden = Boolean(st.demo);
+  if (st.demo) {
+    $("status").textContent = "demo mode · sample data";
+    $("livestatus").textContent = "Demo data: 16 sample issues, analyzed once with Jev. Nothing is being checked or analyzed right now.";
+    pause.hidden = true; showErr("liveerr", null);
+  } else {
+    const state = st.paused ? "paused" : st.limitReached ? "daily limit reached, resumes tomorrow" : st.polling ? "checking now…" : "next check " + inMin(st.nextPollAt);
+    $("livestatus").textContent = `${st.repos.length ? st.repos.join(", ") : "no repositories watched yet (add some in the GitHub tab)"}  ·  ${state}  ·  last check ${ago(st.lastPollAt)}  ·  today ${st.today.requests}/${st.today.limit} requests ≈ $${st.today.cost_usd.toFixed(5)}`;
+    pause.hidden = false; pause.textContent = st.paused ? "Resume" : "Pause"; pause.dataset.action = st.paused ? "resume" : "pause";
+    showErr("liveerr", st.lastError ? new Error(st.lastError) : null);
+    fillSettings(st);
+  }
+
+  const body = $("livebody"); body.replaceChildren();
+  $("liveempty").hidden = f.items.length > 0;
+  $("liveempty").textContent = st.lastPollAt ? "No issues analyzed yet." : "Waiting for the first check…";
+  if (!f.items.length) return;
+  body.append(countsEl(f.summary), renderTiers(f.items, { onOpen: (it) => openStored(it.key), prefix: "live-" }));
+}
+async function refreshLive() {
+  if ($("live").hidden) return;
+  try { renderLive(await api("/api/feed")); } catch (e) { $("livestatus").textContent = "server error: " + e.message; }
+}
+$("pause").addEventListener("click", async () => {
+  try { await api("/api/watch", { action: $("pause").dataset.action }); refreshLive(); } catch (e) { $("livestatus").textContent = e.message; }
+});
+
+// ------------------------------------------------------------------ GitHub connection
+async function refreshGithub() {
+  try { ghStatus = await api("/api/github/status"); } catch (e) { showErr("gh-err", e); return; }
+  renderGithub();
+}
+function renderGithub() {
+  const s = ghStatus;
+  $("gh-connect").hidden = s.connected;
+  $("gh-repos").hidden = !s.connected;
+  $("gh-issues").hidden = !s.connected || !ghRepo;
+  if (!s.connected) {
+    $("gh-device-on").hidden = !s.deviceFlow; $("gh-device-off").hidden = s.deviceFlow;
+    return;
+  }
+  $("gh-user").textContent = `@${s.user.login} · connected via ${s.method === "cli" ? "GitHub CLI" : "GitHub sign-in"}${s.canReadPrivate ? "" : " · public repositories only"}`;
+  loadRepos();
+}
+async function connectCli() {
+  const b = $("gh-cli"); b.disabled = true; showErr("gh-err", null);
+  try { ghStatus = await api("/api/github/connect-cli", {}); renderGithub(); } catch (e) { showErr("gh-err", e); }
+  finally { b.disabled = false; }
+}
+async function deviceSignIn() {
+  showErr("gh-err", null);
+  try {
+    const d = await api("/api/github/device/start", { scope: $("gh-scope").value });
+    $("gh-code").hidden = false; $("gh-code-value").textContent = d.user_code;
+    const link = $("gh-code-link"); link.href = d.verification_uri; link.textContent = d.verification_uri;
+    clearInterval(devicePoll);
+    devicePoll = setInterval(async () => {
+      try {
+        const r = await api("/api/github/device/poll", {});
+        if (r.status === "ok") { clearInterval(devicePoll); $("gh-code").hidden = true; ghStatus = r.github; renderGithub(); }
+        else if (r.status !== "pending") { clearInterval(devicePoll); $("gh-code").hidden = true; showErr("gh-err", new Error("Sign-in " + r.status + ". Try again.")); }
+      } catch (e) { clearInterval(devicePoll); showErr("gh-err", e); }
+    }, Math.max(5, d.interval || 5) * 1000);
+  } catch (e) { showErr("gh-err", e); }
+}
+async function disconnect() {
+  clearInterval(devicePoll);
+  try { ghStatus = await api("/api/github/disconnect", {}); ghRepo = null; renderGithub(); } catch (e) { showErr("gh-repos-err", e); }
+}
+$("gh-cli").addEventListener("click", connectCli);
+$("gh-device").addEventListener("click", deviceSignIn);
+$("gh-disconnect").addEventListener("click", disconnect);
+$("gh-forks").addEventListener("change", () => loadRepos());
+
+let repoList = [];
+async function loadRepos() {
+  try { repoList = (await api("/api/github/repos")).repos; showErr("gh-repos-err", null); }
+  catch (e) { showErr("gh-repos-err", e); return; }
+  const showAll = $("gh-forks").checked;
+  const t = $("gh-repo-table"); t.replaceChildren();
+  t.append(el("tr", {}, ...["Repository", "Open", "Last push", "Jev"].map((h) => el("th", {}, h))));
+  for (const r of repoList.filter((x) => showAll || (!x.fork && !x.archived))) {
+    const name = el("span", {}, r.full_name);
+    const tags = el("span", { class: "chips", style: "display:inline-flex;margin-left:8px" },
+      ...(r.private ? [el("span", { class: "label ghost" }, "private")] : []), ...(r.fork ? [el("span", { class: "label ghost" }, "fork")] : []), ...(r.archived ? [el("span", { class: "label ghost" }, "archived")] : []));
+    const btn = el("button", { class: "btn small" + (r.watched ? " secondary" : "") }, r.watched ? "Stop watching" : "Watch");
+    btn.addEventListener("click", async (ev) => { ev.stopPropagation(); await toggleWatch(r.full_name, !r.watched); });
+    const tr = el("tr", { class: "item" }, el("td", {}, name, tags, r.description ? el("div", { class: "meta", style: "margin-top:2px;font-family:inherit" }, r.description) : ""),
+      el("td", { class: "num" }, String(r.open_issues_count)), el("td", { class: "num" }, dayAgo(r.pushed_at)), el("td", {}, btn));
+    tr.addEventListener("click", () => openRepo(r.full_name));
+    t.append(tr);
+  }
+}
+async function toggleWatch(repo, on) {
+  try {
+    if (on) await withPrivateConfirm("/api/watch/repo", { repo, action: "add" }); else await api("/api/watch/repo", { repo, action: "remove" });
+    await loadRepos();
+    if (ghRepo === repo) openRepo(repo);
+  } catch (e) { showErr("gh-repos-err", e); }
+}
+async function openRepo(repo) {
+  ghRepo = repo; $("gh-issues").hidden = false; showErr("gh-issues-err", null);
+  $("gh-issues-title").textContent = repo; $("gh-issues-meta").textContent = "loading…";
+  $("gh-issue-table").replaceChildren(); $("gh-issues-empty").hidden = true;
+  let data;
+  try { data = await api("/api/github/issues?repo=" + encodeURIComponent(repo)); } catch (e) { $("gh-issues-meta").textContent = ""; showErr("gh-issues-err", e); return; }
+  $("gh-issues-meta").textContent = `${data.issues.length} latest open issues${data.isPrivate ? " · private repository" : ""}`;
+  const wb = $("gh-issues-watch"); wb.textContent = data.watched ? "Stop watching" : "Watch this repository";
+  wb.onclick = async () => { await toggleWatch(repo, !data.watched); };
+  $("gh-issues-empty").hidden = data.issues.length > 0;
+  const t = $("gh-issue-table");
+  if (data.issues.length) t.append(el("tr", {}, ...["#", "Issue", "Repo labels", "Jev"].map((h) => el("th", {}, h))));
+  for (const i of data.issues) {
+    const title = i.url ? el("a", { href: i.url, target: "_blank", rel: "noopener noreferrer" }, i.title) : document.createTextNode(i.title);
+    const jevCell = el("td", {});
+    const setAnalyzed = (key, labels) => { jevCell.replaceChildren(chips(labels)); tr.onclick = (ev) => { if (ev.target.tagName !== "A") openStored(key); }; tr.classList.add("item"); };
+    const tr = el("tr", {}, el("td", { class: "num" }, "#" + i.number), el("td", {}, title),
+      el("td", {}, i.existingLabels.length ? chips(i.existingLabels, "ghost") : el("span", { class: "meta" }, "none")), jevCell);
+    if (i.analyzed) setAnalyzed(i.analyzed.key, i.analyzed.labels);
+    else {
+      const b = el("button", { class: "btn small secondary" }, "Analyze");
+      b.addEventListener("click", async (ev) => {
+        ev.stopPropagation(); b.disabled = true; b.textContent = "Asking Jev…"; showErr("gh-issues-err", null);
+        try {
+          const r = await withPrivateConfirm("/api/analyze-issue", { repo, number: i.number });
+          setAnalyzed(r.item.key, r.item.labels);
+        } catch (e) { b.disabled = false; b.textContent = "Analyze"; showErr("gh-issues-err", e); }
+      });
+      jevCell.append(b);
+    }
+    t.append(tr);
+  }
+}
+
+// ------------------------------------------------------------------ Scan
+function renderScan(data) {
+  $("scanout").hidden = false; showErr("scanerr", null);
+  const items = data.results.filter((r) => !r.error).map((r) => ({ ...r, repo: data.repo, analyzedAt: null }));
+  const failed = data.results.filter((r) => r.error);
+  const u = data.totals;
+  $("scansum").replaceChildren(
+    el("span", {}, `${data.repo} · ${data.results.length} latest open issues`),
+    failed.length ? el("span", { style: "color:var(--danger)" }, `${failed.length} failed`) : "",
+    el("span", {}, `${u.input_tokens} tokens in / ${u.output_tokens} out ≈ $${((u.input_tokens * 0.042) / 1e6).toFixed(5)}`));
+  const body = $("scanbody"); body.replaceChildren();
+  if (!data.results.length) { body.append(el("div", { class: "empty" }, data.note || "No open issues.")); return; }
+  body.append(countsEl(tierCounts(items)), renderTiers(items, { onOpen: (it) => openDetail(it.data), prefix: "scan-" }));
+  for (const f of failed) body.append(el("div", { class: "nothing" }, `#${f.number} ${f.title}: ${f.error}`));
+}
+async function scan() {
+  const btn = $("scango"); btn.disabled = true; btn.textContent = "Scanning…";
+  try { renderScan(await withPrivateConfirm("/api/scan", { repo: $("repo").value, limit: Number($("limit").value), thresholds: thresholds() })); }
+  catch (e) { $("scanout").hidden = true; showErr("scanerr", e); }
+  finally { btn.disabled = false; btn.textContent = "Scan with Jev"; }
+}
+$("scango").addEventListener("click", scan);
+$("repo").addEventListener("keydown", (e) => { if (e.key === "Enter") scan(); });
+
+// ------------------------------------------------------------------ startup
+async function init() {
+  try {
+    cfg = await api("/api/config"); examples = await api("/api/examples");
+    $("status").textContent = `model ${cfg.model} · ${cfg.hasKey ? "key loaded" : "NO KEY"}`;
+    $("pname").value = examples.project.name; $("pdesc").value = examples.project.description;
+    for (const i of examples.issues) $("example").append(el("option", { value: i.id }, i.id + (i.tags ? `  [${i.tags.join(", ")}]` : "")));
+  } catch (e) { $("status").textContent = "server error: " + e.message; }
+  refreshLive();
+}
+setInterval(refreshLive, 8000);
+init().then(() => { const h = location.hash.slice(1); if (TABS.includes(h)) showTab(h); });
+</script>
+</body>
+</html>

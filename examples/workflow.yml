@@ -1,0 +1,24 @@
+# .github/workflows/triage.yml
+name: Triage new issues
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write   # only labels and comments; no other permission is granted
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - id: triage
+        uses: elcann7/jev-issue-triage@v0.1.0
+        with:
+          api_key: ${{ secrets.TYPESAFE_API_KEY }}
+          dry_run: "true"     # start with "true": decisions appear in the job summary and nothing is changed
+          comment: "false"
+
+      # Optional: act on the outputs in a later step
+      - name: Announce urgent issues
+        if: steps.triage.outputs.tier == 'urgent'
+        run: echo "Urgent issue labelled: ${{ steps.triage.outputs.labels }}"

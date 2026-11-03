@@ -1,0 +1,19 @@
+name: Feature request
+description: Suggest an improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to see?
+      description: If it is a new question or label, describe the single judgment Jev would be asked to make.
+  - type: markdown
+    attributes:
+      value: |
+        Keep in mind the project rules: zero dependencies, Jev judges and code decides, fixed-text comments only.

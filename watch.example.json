@@ -1,0 +1,8 @@
+{
+  "repos": [
+    "owner/name"
+  ],
+  "pollMinutes": 5,
+  "maxNewPerPoll": 10,
+  "dailyMaxRequests": 300
+}

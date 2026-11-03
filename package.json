@@ -1,0 +1,34 @@
+{
+  "name": "jev-issue-triage",
+  "version": "0.1.0",
+  "description": "GitHub Action that labels and prioritizes new issues with TypeSafe's Jev model. Jev judges, code decides.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "dashboard": "node dashboard/start.mjs",
+    "demo": "node dashboard/start.mjs --demo",
+    "eval": "node scripts/eval.mjs"
+  },
+  "keywords": [
+    "github-action",
+    "issue-triage",
+    "typesafe",
+    "jev",
+    "labels",
+    "triage"
+  ],
+  "author": "Elcan Səfərli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elcann7/jev-issue-triage.git"
+  },
+  "bugs": {
+    "url": "https://github.com/elcann7/jev-issue-triage/issues"
+  },
+  "homepage": "https://github.com/elcann7/jev-issue-triage#readme"
+}

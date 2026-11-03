@@ -1,0 +1,55 @@
+name: Jev Issue Triage
+description: Label new GitHub issues (bug, enhancement, question, documentation, spam, security, needs-repro, severity) using TypeSafe Jev. Jev judges, code decides.
+author: Elcan Səfərli
+branding:
+  icon: tag
+  color: blue
+
+inputs:
+  api_key:
+    description: TypeSafe API key. Store it as a repository secret, never in the workflow file.
+    required: true
+  github_token:
+    description: Token used to add labels and comments. Needs `issues: write`.
+    required: false
+    default: ${{ github.token }}
+  model:
+    description: Jev model name or alias.
+    required: false
+    default: jev-latest
+  dry_run:
+    description: If "true", compute the decision and print it in the job summary, but change nothing on the issue.
+    required: false
+    default: "false"
+  comment:
+    description: If "true", post fixed-template comments (reproduction request, security notice). Never model-written text.
+    required: false
+    default: "false"
+  threshold_high:
+    description: A Noul probability at or above this reads as yes.
+    required: false
+    default: "0.7"
+  threshold_low:
+    description: A Noul probability at or below this reads as no.
+    required: false
+    default: "0.3"
+  base_url:
+    description: API base URL. Only change this for testing against a local mock server.
+    required: false
+    default: https://api.typesafe.ai
+  max_body_chars:
+    description: Issue body is cut at this length before it is sent.
+    required: false
+    default: "6000"
+
+outputs:
+  labels:
+    description: Comma-separated labels the code decided on. Empty when the event was skipped.
+  tier:
+    description: "Priority tier: urgent, attention, planned or spam. Empty when the event was skipped."
+  skipped:
+    description: "true when the event was not handled (pull request, bot author, already triaged, or an action other than opened)."
+
+runs:
+  using: node24
+  main: src/index.mjs
