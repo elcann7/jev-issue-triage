@@ -21,4 +21,4 @@ jobs:
       # Optional: act on the outputs in a later step
       - name: Announce urgent issues
         if: steps.triage.outputs.tier == 'urgent'
-        run: echo "Urgent issue labelled: ${{ steps.triage.outputs.labels }}"
+        run: echo "Urgent issue labelled - ${{ steps.triage.outputs.labels }}"
